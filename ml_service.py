@@ -2,7 +2,7 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 import joblib
-import pandas as pd
+import numpy as np
 import uvicorn
 
 # ✅ โหลดโมเดลและ label encoder
@@ -30,13 +30,11 @@ def read_root():
 @app.post("/predict")
 def predict(data: InputData):
     try:
-        # ✅ สร้าง DataFrame ที่มีชื่อคอลัมน์ตรงกับตอนที่ fit โมเดล
-        input_df = pd.DataFrame([[data.total_score]], columns=["Total score"])
+        # แปลงเป็น array เพื่อให้โมเดลทำนาย
+        input_array = np.array([[data.total_score]])
+        prediction = model.predict(input_array)[0]
 
-        # ✅ ทำนายผล
-        prediction = model.predict(input_df)[0]
-
-        # ✅ prediction ที่ได้ออกมาเป็น [stress, activity]
+        # แปลงค่าจากตัวเลขกลับเป็น label เดิม
         stress_label = le_stress.inverse_transform([prediction[0]])[0]
         activity_label = le_activity.inverse_transform([prediction[1]])[0]
 
@@ -49,4 +47,5 @@ def predict(data: InputData):
 
 # ✅ ถ้ารันไฟล์นี้ตรง ๆ
 if __name__ == "__main__":
+    # รันที่ port 8000
     uvicorn.run("ml_service:app", host="0.0.0.0", port=8000, reload=True)
