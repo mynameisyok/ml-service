@@ -1,0 +1,51 @@
+# ml_service.py
+from fastapi import FastAPI
+from pydantic import BaseModel
+import joblib
+import numpy as np
+import uvicorn
+
+# ✅ โหลดโมเดลและ label encoder
+model = joblib.load("rf_multi_model.pkl")
+le_stress = joblib.load("rf_multi_label_encoder_stress.pkl")
+le_activity = joblib.load("rf_multi_label_encoder_activity.pkl")
+
+# ✅ สร้าง FastAPI app
+app = FastAPI(
+    title="Stress Activity Prediction API",
+    description="API สำหรับทำนายระดับความเครียดและกิจกรรมแนะนำ",
+    version="1.0.0"
+)
+
+# ✅ กำหนดรูปแบบข้อมูล input
+class InputData(BaseModel):
+    total_score: int
+
+# ✅ ทดสอบว่า API ทำงาน
+@app.get("/")
+def read_root():
+    return {"message": "ML Service is running!"}
+
+# ✅ Endpoint สำหรับทำนาย
+@app.post("/predict")
+def predict(data: InputData):
+    try:
+        # แปลงเป็น array เพื่อให้โมเดลทำนาย
+        input_array = np.array([[data.total_score]])
+        prediction = model.predict(input_array)[0]
+
+        # แปลงค่าจากตัวเลขกลับเป็น label เดิม
+        stress_label = le_stress.inverse_transform([prediction[0]])[0]
+        activity_label = le_activity.inverse_transform([prediction[1]])[0]
+
+        return {
+            "stress_level": stress_label,
+            "recommended_activity": activity_label
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+# ✅ ถ้ารันไฟล์นี้ตรง ๆ
+if __name__ == "__main__":
+    # รันที่ port 8000
+    uvicorn.run("ml_service:app", host="0.0.0.0", port=8000, reload=True)
