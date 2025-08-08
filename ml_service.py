@@ -1,19 +1,19 @@
-# ml_service.py
+# ml_service_knn.py
 from fastapi import FastAPI
 from pydantic import BaseModel
 import joblib
 import pandas as pd
 import uvicorn
 
-# ✅ โหลดโมเดลและ label encoder
-model = joblib.load("rf_multi_model.pkl")
-le_stress = joblib.load("rf_multi_label_encoder_stress.pkl")
-le_activity = joblib.load("rf_multi_label_encoder_activity.pkl")
+# ✅ โหลดโมเดล KNN และ label encoders
+model = joblib.load("knn_multi_model.pkl")
+le_stress = joblib.load("knn_multi_label_encoder_stress.pkl")
+le_activity = joblib.load("knn_multi_label_encoder_activity.pkl")
 
 # ✅ สร้าง FastAPI app
 app = FastAPI(
-    title="Stress Activity Prediction API",
-    description="API สำหรับทำนายระดับความเครียดและกิจกรรมแนะนำ",
+    title="Stress Activity Prediction API (KNN)",
+    description="API สำหรับทำนายระดับความเครียดและกิจกรรมแนะนำ ด้วยโมเดล KNN",
     version="1.0.0"
 )
 
@@ -24,21 +24,20 @@ class InputData(BaseModel):
 # ✅ ทดสอบว่า API ทำงาน
 @app.get("/")
 def read_root():
-    return {"message": "ML Service is running!"}
+    return {"message": "KNN ML Service is running!"}
 
 # ✅ Endpoint สำหรับทำนาย
 @app.post("/predict")
 def predict(data: InputData):
     try:
-        # ✅ สร้าง DataFrame ที่มีชื่อคอลัมน์ตรงกับตอนที่ fit โมเดล
+        # ต้องใช้ชื่อคอลัมน์ให้ตรงกับตอน train ("Total score")
         input_df = pd.DataFrame([[data.total_score]], columns=["Total score"])
 
-        # ✅ ทำนายผล
-        prediction = model.predict(input_df)[0]
+        # ทำนาย: คืนค่าเป็น [stress_label_encoded, activity_label_encoded]
+        pred = model.predict(input_df)[0]
 
-        # ✅ prediction ที่ได้ออกมาเป็น [stress, activity]
-        stress_label = le_stress.inverse_transform([prediction[0]])[0]
-        activity_label = le_activity.inverse_transform([prediction[1]])[0]
+        stress_label = le_stress.inverse_transform([pred[0]])[0]
+        activity_label = le_activity.inverse_transform([pred[1]])[0]
 
         return {
             "stress_level": stress_label,
@@ -47,7 +46,7 @@ def predict(data: InputData):
     except Exception as e:
         return {"error": str(e)}
 
-# ✅ ถ้ารันไฟล์นี้ตรง ๆ
+# ✅ รันตรง ๆ
 if __name__ == "__main__":
-    # รันที่ port 8000
-    uvicorn.run("ml_service:app", host="0.0.0.0", port=8000, reload=True)
+    # รันที่พอร์ต 8001 แยกจาก RF (ปรับได้ตามต้องการ)
+    uvicorn.run("ml_service_knn:app", host="0.0.0.0", port=8001, reload=True)
